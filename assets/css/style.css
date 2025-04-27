@@ -1,0 +1,117 @@
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Blog content styling */
+.blog-content {
+    line-height: 1.7;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+.blog-content p {
+    margin-bottom: 1rem;
+}
+
+.blog-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.5rem;
+    margin: 1.5rem auto;
+    display: block;
+}
+
+/* Card hover effect */
+.blog-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.blog-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* Truncate long text */
+.truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.truncate-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.5s ease forwards;
+}
+
+/* Modal animations */
+.modal-enter {
+    animation: modalEnter 0.3s ease forwards;
+}
+
+@keyframes modalEnter {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* Badge styling */
+.category-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background-color: rgba(79, 70, 229, 0.1);
+    color: #4f46e5;
+}
+
+/* Blog view modal responsiveness */
+@media (max-width: 640px) {
+    #viewBlogModal .bg-white {
+        margin: 1rem;
+        max-height: calc(100vh - 2rem);
+    }
+    
+    #blogDetails {
+        padding: 1rem;
+    }
+    
+    #blogDetails h2 {
+        font-size: 1.5rem;
+    }
+    
+    #blogDetails img {
+        max-height: 200px;
+    }
+}
+
+/* Prevent body scroll when modal is open */
+body.overflow-hidden {
+    overflow: hidden;
+} 

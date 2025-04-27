@@ -1,0 +1,191 @@
+/**
+ * Blog Storage Service
+ * Handles all operations related to storing, retrieving, and managing blog data
+ */
+class BlogStorage {
+    constructor() {
+        this.storageKey = 'blogger_posts';
+    }
+
+    /**
+     * Get all blogs from local storage
+     * @returns {Array} Array of blog objects
+     */
+    getAllBlogs() {
+        const blogs = localStorage.getItem(this.storageKey);
+        return blogs ? JSON.parse(blogs) : [];
+    }
+
+    /**
+     * Save blogs to local storage
+     * @param {Array} blogs Array of blog objects
+     */
+    saveBlogs(blogs) {
+        localStorage.setItem(this.storageKey, JSON.stringify(blogs));
+    }
+
+    /**
+     * Get a single blog by ID
+     * @param {String} id Blog ID
+     * @returns {Object|null} Blog object or null if not found
+     */
+    getBlogById(id) {
+        const blogs = this.getAllBlogs();
+        return blogs.find(blog => blog.id === id) || null;
+    }
+
+    /**
+     * Add a new blog
+     * @param {Object} blog Blog object 
+     * @returns {Object} Added blog with generated ID
+     */
+    addBlog(blog) {
+        const blogs = this.getAllBlogs();
+        
+        // Generate a unique ID
+        blog.id = this.generateId();
+        
+        // Add timestamp
+        blog.createdAt = new Date().toISOString();
+        
+        // Add to blogs array
+        blogs.unshift(blog);
+        
+        // Save to storage
+        this.saveBlogs(blogs);
+        
+        return blog;
+    }
+
+    /**
+     * Update an existing blog
+     * @param {String} id Blog ID
+     * @param {Object} updatedBlog Updated blog object
+     * @returns {Object|null} Updated blog or null if not found
+     */
+    updateBlog(id, updatedBlog) {
+        const blogs = this.getAllBlogs();
+        const index = blogs.findIndex(blog => blog.id === id);
+        
+        if (index === -1) return null;
+        
+        // Preserve ID and creation date
+        updatedBlog.id = id;
+        updatedBlog.createdAt = blogs[index].createdAt;
+        updatedBlog.updatedAt = new Date().toISOString();
+        
+        // Update blog
+        blogs[index] = updatedBlog;
+        
+        // Save to storage
+        this.saveBlogs(blogs);
+        
+        return updatedBlog;
+    }
+
+    /**
+     * Delete a blog by ID
+     * @param {String} id Blog ID
+     * @returns {Boolean} True if deleted, false if not found
+     */
+    deleteBlog(id) {
+        const blogs = this.getAllBlogs();
+        const filteredBlogs = blogs.filter(blog => blog.id !== id);
+        
+        if (filteredBlogs.length === blogs.length) {
+            return false;
+        }
+        
+        this.saveBlogs(filteredBlogs);
+        return true;
+    }
+
+    /**
+     * Delete all blogs
+     * @returns {Boolean} True if operation was successful
+     */
+    deleteAllBlogs() {
+        localStorage.removeItem(this.storageKey);
+        return true;
+    }
+
+    /**
+     * Filter blogs by name and category
+     * @param {String} searchTerm Search term for blog title
+     * @param {String} category Category to filter by
+     * @returns {Array} Filtered array of blogs
+     */
+    filterBlogs(searchTerm = '', category = '') {
+        let blogs = this.getAllBlogs();
+        
+        // Filter by search term (case insensitive)
+        if (searchTerm) {
+            const term = searchTerm.toLowerCase();
+            blogs = blogs.filter(blog => 
+                blog.title.toLowerCase().includes(term) || 
+                blog.content.toLowerCase().includes(term)
+            );
+        }
+        
+        // Filter by category
+        if (category) {
+            blogs = blogs.filter(blog => blog.category === category);
+        }
+        
+        return blogs;
+    }
+
+    /**
+     * Generate a unique ID
+     * @returns {String} Unique ID
+     */
+    generateId() {
+        return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+    }
+
+    /**
+     * Format a date for display
+     * @param {String} dateString ISO date string
+     * @returns {String} Formatted date
+     */
+    formatDate(dateString) {
+        const options = { year: 'numeric', month: 'long', day: 'numeric' };
+        return new Date(dateString).toLocaleDateString(undefined, options);
+    }
+
+    /**
+     * Add some sample blogs if storage is empty
+     */
+    addSampleBlogs() {
+        const blogs = this.getAllBlogs();
+        
+        if (blogs.length === 0) {
+            const sampleBlogs = [
+                {
+                    title: "Getting Started with Web Development",
+                    category: "Technology",
+                    content: "Web development is the work involved in developing a website for the Internet or an intranet. Web development can range from developing a simple single static page of plain text to complex web applications, electronic businesses, and social network services.\n\nFront-end development involves the interface that users interact with. HTML, CSS, and JavaScript are the core technologies for building web pages. Frameworks like React, Angular, and Vue make front-end development faster and more organized.\n\nBack-end development involves the server side, focusing on databases, server logic, and APIs. Common technologies include Node.js, Python, Ruby, PHP, and databases like MySQL and MongoDB.",
+                    imageUrl: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?ixlib=rb-1.2.1&auto=format&fit=crop&w=1352&q=80"
+                },
+                {
+                    title: "The Art of Mindful Living",
+                    category: "Lifestyle",
+                    content: "Mindfulness is the practice of purposely bringing one's attention to experiences occurring in the present moment without judgment. Mindfulness is a skill that can be developed through practice, often through meditation.\n\nBenefits of mindfulness include reduced stress, improved focus, and better emotional regulation. It can be as simple as taking a few minutes each day to sit quietly and focus on your breath.\n\nMindful living extends beyond formal meditation. It's about bringing awareness to everyday activities like eating, walking, and interacting with others. The goal is to fully engage with the present moment rather than being lost in thoughts about the past or future.",
+                    imageUrl: "https://images.unsplash.com/photo-1499209974431-9dddcece7f88?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80"
+                },
+                {
+                    title: "Exploring the Hidden Gems of Southeast Asia",
+                    category: "Travel",
+                    content: "Southeast Asia offers a treasure trove of experiences beyond the typical tourist spots. While places like Bali and Bangkok are popular for good reason, venturing off the beaten path reveals authentic cultural experiences and breathtaking natural beauty.\n\nIn Thailand, skip the crowded beaches of Phuket and head to Koh Lanta or Koh Kood for pristine shores without the crowds. Vietnam's Ha Giang loop offers spectacular mountain scenery and glimpses into the lives of ethnic minority groups.\n\nLaos, often overlooked by travelers rushing between Thailand and Vietnam, has the charming UNESCO town of Luang Prabang and the serene 4000 Islands region in the Mekong River. Cambodia has more to offer than just Angkor Wat, including the untouched beaches of Koh Rong and the elephant sanctuaries in Mondulkiri.",
+                    imageUrl: "https://images.unsplash.com/photo-1528181304800-259b08848526?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80"
+                }
+            ];
+            
+            sampleBlogs.forEach(blog => this.addBlog(blog));
+        }
+    }
+}
+
+// Create and export a single instance
+const blogStorage = new BlogStorage();
+blogStorage.addSampleBlogs(); // Add sample blogs if empty 

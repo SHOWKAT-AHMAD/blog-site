@@ -1,0 +1,410 @@
+/**
+ * Main JavaScript file for the blog website
+ * Handles blog listing, filtering, viewing, and deleting
+ */
+
+// DOM Elements
+const blogGrid = document.getElementById('blogGrid');
+const noBlogs = document.getElementById('noBlogs');
+const searchInput = document.getElementById('searchInput');
+const categoryFilter = document.getElementById('categoryFilter');
+const blogCount = document.getElementById('blogCount');
+const clearAllBtn = document.getElementById('clearAllBtn');
+const firstBlogBtn = document.getElementById('firstBlogBtn');
+const viewBlogModal = document.getElementById('viewBlogModal');
+const blogDetails = document.getElementById('blogDetails');
+const closeViewModal = document.getElementById('closeViewModal');
+const backToBlogs = document.getElementById('backToBlogs');
+const deleteModal = document.getElementById('deleteModal');
+const confirmDelete = document.getElementById('confirmDelete');
+const cancelDelete = document.getElementById('cancelDelete');
+
+// Track current blogs and selected blog
+let currentBlogs = [];
+let selectedBlogId = null;
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', () => {
+    loadBlogs();
+    setupEventListeners();
+    
+    // Ensure the modal can be closed by clicking outside of it
+    window.addEventListener('click', (e) => {
+        if (e.target === viewBlogModal) {
+            closeViewBlogModal();
+        }
+        if (e.target === deleteModal) {
+            closeDeleteModal();
+        }
+    });
+});
+
+/**
+ * Set up all event listeners
+ */
+function setupEventListeners() {
+    // Search and filter
+    searchInput.addEventListener('input', debounce(filterBlogs, 300));
+    categoryFilter.addEventListener('change', filterBlogs);
+    
+    // Clear all button
+    clearAllBtn.addEventListener('click', confirmClearAll);
+    
+    // First blog button
+    firstBlogBtn.addEventListener('click', () => {
+        document.getElementById('addBlogBtn').click();
+    });
+    
+    // View blog modal controls
+    if (closeViewModal) {
+        closeViewModal.addEventListener('click', closeViewBlogModal);
+    } else {
+        console.error('Close view modal button not found');
+    }
+    
+    if (backToBlogs) {
+        backToBlogs.addEventListener('click', closeViewBlogModal);
+    } else {
+        console.error('Back to blogs button not found');
+    }
+    
+    // Delete modal controls
+    cancelDelete.addEventListener('click', closeDeleteModal);
+    confirmDelete.addEventListener('click', confirmDeleteBlog);
+    
+    // Global event delegation for blog cards
+    blogGrid.addEventListener('click', handleBlogGridClick);
+}
+
+/**
+ * Load and display blogs
+ */
+function loadBlogs() {
+    currentBlogs = blogStorage.getAllBlogs();
+    updateBlogDisplay();
+}
+
+/**
+ * Update the blog display based on current blogs
+ */
+function updateBlogDisplay() {
+    // Update blog count
+    blogCount.textContent = `(${currentBlogs.length})`;
+    
+    // Show/hide elements based on blog count
+    if (currentBlogs.length === 0) {
+        noBlogs.classList.remove('hidden');
+        blogGrid.classList.add('hidden');
+        clearAllBtn.classList.add('hidden');
+    } else {
+        noBlogs.classList.add('hidden');
+        blogGrid.classList.remove('hidden');
+        clearAllBtn.classList.remove('hidden');
+    }
+    
+    // Render blogs
+    renderBlogs();
+}
+
+/**
+ * Render blogs to the grid
+ */
+function renderBlogs() {
+    blogGrid.innerHTML = '';
+    
+    currentBlogs.forEach(blog => {
+        const blogCard = createBlogCard(blog);
+        blogGrid.appendChild(blogCard);
+    });
+
+    // Add animation to cards
+    animateCards();
+}
+
+/**
+ * Create a blog card element
+ * @param {Object} blog Blog object
+ * @returns {HTMLElement} Blog card element
+ */
+function createBlogCard(blog) {
+    const card = document.createElement('article');
+    card.className = 'blog-card bg-white rounded-lg shadow-md overflow-hidden';
+    card.dataset.id = blog.id;
+    
+    const formattedDate = blogStorage.formatDate(blog.createdAt);
+    const updateText = blog.updatedAt ? `<span class="text-indigo-500">(Updated: ${blogStorage.formatDate(blog.updatedAt)})</span>` : '';
+    
+    const imageHtml = blog.imageUrl 
+        ? `<div class="h-48 overflow-hidden">
+             <img src="${blog.imageUrl}" alt="${blog.title}" class="w-full h-full object-cover transition-transform duration-500 hover:scale-110">
+           </div>`
+        : '';
+    
+    const truncatedContent = blog.content.split('\n')[0]; // First paragraph
+
+    card.innerHTML = `
+        ${imageHtml}
+        <div class="p-5">
+            <div class="flex justify-between items-start mb-2">
+                <span class="category-badge">${blog.category}</span>
+                <div class="flex space-x-1">
+                    <button class="edit-blog text-gray-500 hover:text-indigo-600 p-1" title="Edit Blog">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="delete-blog text-gray-500 hover:text-red-600 p-1" title="Delete Blog">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <h3 class="text-xl font-semibold mb-2 hover:text-indigo-600 cursor-pointer view-blog">${blog.title}</h3>
+            <p class="text-gray-600 mb-4 truncate-3">${truncatedContent}</p>
+            <div class="flex justify-between items-center">
+                <span class="text-sm text-gray-500">${formattedDate} ${updateText}</span>
+                <button class="view-blog text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+                    Read More <i class="fas fa-arrow-right ml-1"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    
+    return card;
+}
+
+/**
+ * Handle clicks on the blog grid (delegation)
+ * @param {Event} e Click event
+ */
+function handleBlogGridClick(e) {
+    const card = e.target.closest('.blog-card');
+    if (!card) return;
+    
+    const blogId = card.dataset.id;
+
+    // View blog
+    if (e.target.closest('.view-blog')) {
+        viewBlog(blogId);
+        return;
+    }
+    
+    // Edit blog
+    if (e.target.closest('.edit-blog')) {
+        editBlog(blogId);
+        return;
+    }
+    
+    // Delete blog
+    if (e.target.closest('.delete-blog')) {
+        showDeleteModal(blogId);
+        return;
+    }
+}
+
+/**
+ * Filter blogs based on search term and category
+ */
+function filterBlogs() {
+    const searchTerm = searchInput.value.trim();
+    const category = categoryFilter.value;
+    
+    currentBlogs = blogStorage.filterBlogs(searchTerm, category);
+    updateBlogDisplay();
+}
+
+/**
+ * View a blog in detail
+ * @param {String} blogId Blog ID
+ */
+function viewBlog(blogId) {
+    const blog = blogStorage.getBlogById(blogId);
+    if (!blog) return;
+    
+    // Format content with paragraphs
+    const formattedContent = blog.content
+        .split('\n\n')
+        .map(paragraph => `<p>${paragraph}</p>`)
+        .join('');
+    
+    const formattedDate = blogStorage.formatDate(blog.createdAt);
+    const updateText = blog.updatedAt ? `<span class="text-indigo-500 ml-2">(Updated: ${blogStorage.formatDate(blog.updatedAt)})</span>` : '';
+    
+    const imageHtml = blog.imageUrl 
+        ? `<div class="mb-6">
+             <img src="${blog.imageUrl}" alt="${blog.title}" class="w-full h-auto rounded-lg shadow-md max-h-96 object-contain mx-auto">
+           </div>`
+        : '';
+    
+    blogDetails.innerHTML = `
+        ${imageHtml}
+        <h2 class="text-3xl font-bold mb-2">${blog.title}</h2>
+        <div class="flex flex-wrap items-center mb-6">
+            <span class="category-badge mr-3">${blog.category}</span>
+            <span class="text-gray-500">${formattedDate} ${updateText}</span>
+        </div>
+        <div class="blog-content text-gray-700 leading-relaxed overflow-auto">
+            ${formattedContent}
+        </div>
+    `;
+    
+    // Show modal
+    viewBlogModal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden'); // Prevent scrolling of background
+    
+    setTimeout(() => {
+        const modalContent = viewBlogModal.querySelector('.bg-white');
+        if (modalContent) {
+            modalContent.classList.add('modal-enter');
+        }
+    }, 10);
+}
+
+/**
+ * Close the view blog modal
+ */
+function closeViewBlogModal() {
+    console.log('Closing blog view modal');
+    document.body.classList.remove('overflow-hidden'); // Re-enable scrolling
+    viewBlogModal.classList.add('hidden');
+    
+    const modalContent = viewBlogModal.querySelector('.bg-white');
+    if (modalContent) {
+        modalContent.classList.remove('modal-enter');
+    }
+}
+
+/**
+ * Edit a blog
+ * @param {String} blogId Blog ID
+ */
+function editBlog(blogId) {
+    // This will be handled by blog-form.js
+    // Just trigger the event
+    const event = new CustomEvent('edit-blog', { detail: { blogId } });
+    document.dispatchEvent(event);
+}
+
+/**
+ * Show the delete confirmation modal
+ * @param {String} blogId Blog ID to delete
+ */
+function showDeleteModal(blogId) {
+    selectedBlogId = blogId;
+    deleteModal.classList.remove('hidden');
+    setTimeout(() => {
+        deleteModal.querySelector('.bg-white').classList.add('modal-enter');
+    }, 10);
+}
+
+/**
+ * Close the delete modal
+ */
+function closeDeleteModal() {
+    deleteModal.classList.add('hidden');
+    deleteModal.querySelector('.bg-white').classList.remove('modal-enter');
+    selectedBlogId = null;
+}
+
+/**
+ * Confirm and execute blog deletion
+ */
+function confirmDeleteBlog() {
+    if (!selectedBlogId) return;
+    
+    const success = blogStorage.deleteBlog(selectedBlogId);
+    if (success) {
+        showToast('Blog deleted successfully!');
+        loadBlogs(); // Reload blogs
+    } else {
+        showToast('Failed to delete blog', 'error');
+    }
+    
+    closeDeleteModal();
+}
+
+/**
+ * Show confirmation for clearing all blogs
+ */
+function confirmClearAll() {
+    if (confirm('Are you sure you want to delete all blogs? This action cannot be undone.')) {
+        blogStorage.deleteAllBlogs();
+        loadBlogs();
+        showToast('All blogs deleted successfully!');
+    }
+}
+
+/**
+ * Animate blog cards with a staggered fade-in effect
+ */
+function animateCards() {
+    const cards = document.querySelectorAll('.blog-card');
+    cards.forEach((card, index) => {
+        setTimeout(() => {
+            card.classList.add('animate-fade-in');
+        }, index * 100);
+    });
+}
+
+/**
+ * Show a toast notification
+ * @param {String} message Message to display
+ * @param {String} type Type of toast (success, error)
+ */
+function showToast(message, type = 'success') {
+    // Check if a toast container exists, create if not
+    let toastContainer = document.querySelector('.toast-container');
+    
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.className = 'toast-container fixed bottom-4 right-4 z-50';
+        document.body.appendChild(toastContainer);
+    }
+    
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `p-3 rounded-lg shadow-lg mb-3 flex items-center ${
+        type === 'success' ? 'bg-green-500' : 'bg-red-500'
+    } text-white`;
+    
+    toast.innerHTML = `
+        <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'} mr-2"></i>
+        <span>${message}</span>
+    `;
+    
+    // Add to container
+    toastContainer.appendChild(toast);
+    
+    // Animate in
+    setTimeout(() => {
+        toast.classList.add('animate-fade-in');
+    }, 10);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(10px)';
+        toast.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+        
+        // Remove from DOM after fade out
+        setTimeout(() => {
+            toast.remove();
+            
+            // Remove container if empty
+            if (toastContainer.children.length === 0) {
+                toastContainer.remove();
+            }
+        }, 500);
+    }, 3000);
+}
+
+/**
+ * Debounce function to limit how often a function can be called
+ * @param {Function} func Function to debounce
+ * @param {Number} wait Wait time in milliseconds
+ * @returns {Function} Debounced function
+ */
+function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+} 

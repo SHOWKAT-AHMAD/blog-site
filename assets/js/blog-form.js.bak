@@ -1,0 +1,238 @@
+/**
+ * Blog Form Handler
+ * Manages the blog form for adding and editing blogs
+ */
+
+// DOM Elements
+const blogFormModal = document.getElementById('blogFormModal');
+const blogForm = document.getElementById('blogForm');
+const modalTitle = document.getElementById('modalTitle');
+const blogIdInput = document.getElementById('blogId');
+const titleInput = document.getElementById('title');
+const categoryInput = document.getElementById('category');
+const contentInput = document.getElementById('content');
+const imageUrlInput = document.getElementById('imageUrl');
+const saveBtn = document.getElementById('saveBtn');
+const cancelBtn = document.getElementById('cancelBtn');
+const closeModal = document.getElementById('closeModal');
+const addBlogBtn = document.getElementById('addBlogBtn');
+
+// Flag to track if we're in edit mode
+let isEditMode = false;
+
+// Initialize form handlers
+document.addEventListener('DOMContentLoaded', () => {
+    setupFormEventListeners();
+});
+
+/**
+ * Set up event listeners for the form
+ */
+function setupFormEventListeners() {
+    // Open modal to add a new blog
+    addBlogBtn.addEventListener('click', showAddBlogForm);
+    
+    // Form submission
+    blogForm.addEventListener('submit', handleFormSubmit);
+    
+    // Close modal
+    closeModal.addEventListener('click', closeBlogFormModal);
+    cancelBtn.addEventListener('click', closeBlogFormModal);
+    
+    // Listen for edit blog event from main.js
+    document.addEventListener('edit-blog', (e) => {
+        const blogId = e.detail.blogId;
+        showEditBlogForm(blogId);
+    });
+}
+
+/**
+ * Show the form for adding a new blog
+ */
+function showAddBlogForm() {
+    isEditMode = false;
+    modalTitle.textContent = 'Add New Blog';
+    saveBtn.textContent = 'Save Blog';
+    
+    // Reset form
+    blogForm.reset();
+    blogIdInput.value = '';
+    
+    // Show modal
+    blogFormModal.classList.remove('hidden');
+    setTimeout(() => {
+        blogFormModal.querySelector('.bg-white').classList.add('modal-enter');
+        titleInput.focus();
+    }, 10);
+}
+
+/**
+ * Show the form for editing an existing blog
+ * @param {String} blogId ID of the blog to edit
+ */
+function showEditBlogForm(blogId) {
+    const blog = blogStorage.getBlogById(blogId);
+    if (!blog) {
+        showToast('Blog not found', 'error');
+        return;
+    }
+    
+    isEditMode = true;
+    modalTitle.textContent = 'Edit Blog';
+    saveBtn.textContent = 'Update Blog';
+    
+    // Fill form with blog data
+    blogIdInput.value = blog.id;
+    titleInput.value = blog.title;
+    categoryInput.value = blog.category;
+    contentInput.value = blog.content;
+    imageUrlInput.value = blog.imageUrl || '';
+    
+    // Show modal
+    blogFormModal.classList.remove('hidden');
+    setTimeout(() => {
+        blogFormModal.querySelector('.bg-white').classList.add('modal-enter');
+        titleInput.focus();
+    }, 10);
+}
+
+/**
+ * Handle form submission for both adding and editing
+ * @param {Event} e Submit event
+ */
+function handleFormSubmit(e) {
+    e.preventDefault();
+    
+    // Validate form
+    if (!validateForm()) {
+        return;
+    }
+    
+    // Collect form data
+    const blogData = {
+        title: titleInput.value.trim(),
+        category: categoryInput.value,
+        content: contentInput.value.trim(),
+        imageUrl: imageUrlInput.value.trim() || null
+    };
+    
+    let result;
+    
+    // Save or update
+    if (isEditMode) {
+        const blogId = blogIdInput.value;
+        result = blogStorage.updateBlog(blogId, blogData);
+        
+        if (result) {
+            showToast('Blog updated successfully!');
+        } else {
+            showToast('Failed to update blog', 'error');
+            return;
+        }
+    } else {
+        result = blogStorage.addBlog(blogData);
+        showToast('Blog added successfully!');
+    }
+    
+    // Close modal and refresh blogs
+    closeBlogFormModal();
+    loadBlogs();
+}
+
+/**
+ * Validate the form
+ * @returns {Boolean} True if valid, false otherwise
+ */
+function validateForm() {
+    // Basic validation
+    if (!titleInput.value.trim()) {
+        showFieldError(titleInput, 'Title is required');
+        return false;
+    }
+    
+    if (!categoryInput.value) {
+        showFieldError(categoryInput, 'Please select a category');
+        return false;
+    }
+    
+    if (!contentInput.value.trim()) {
+        showFieldError(contentInput, 'Content is required');
+        return false;
+    }
+    
+    // URL validation (if provided)
+    if (imageUrlInput.value.trim() && !isValidUrl(imageUrlInput.value.trim())) {
+        showFieldError(imageUrlInput, 'Please enter a valid URL');
+        return false;
+    }
+    
+    return true;
+}
+
+/**
+ * Show an error message for a field
+ * @param {HTMLElement} field The field with the error
+ * @param {String} message Error message
+ */
+function showFieldError(field, message) {
+    // Remove any existing error
+    clearFieldError(field);
+    
+    // Add error class
+    field.classList.add('border-red-500', 'focus:ring-red-300');
+    
+    // Create error message element
+    const errorMessage = document.createElement('p');
+    errorMessage.className = 'text-red-500 text-sm mt-1 error-message';
+    errorMessage.textContent = message;
+    
+    // Insert after field
+    field.parentNode.insertBefore(errorMessage, field.nextSibling);
+    
+    // Focus field
+    field.focus();
+    
+    // Remove error after 3 seconds
+    setTimeout(() => {
+        clearFieldError(field);
+    }, 3000);
+}
+
+/**
+ * Clear error styling and message for a field
+ * @param {HTMLElement} field The field to clear errors from
+ */
+function clearFieldError(field) {
+    field.classList.remove('border-red-500', 'focus:ring-red-300');
+    
+    // Remove error message if it exists
+    const errorMessage = field.parentNode.querySelector('.error-message');
+    if (errorMessage) {
+        errorMessage.remove();
+    }
+}
+
+/**
+ * Close the blog form modal
+ */
+function closeBlogFormModal() {
+    blogFormModal.classList.add('hidden');
+    blogFormModal.querySelector('.bg-white').classList.remove('modal-enter');
+    
+    // Clear any errors
+    [titleInput, categoryInput, contentInput, imageUrlInput].forEach(clearFieldError);
+}
+
+/**
+ * Validate if a string is a valid URL
+ * @param {String} url URL to validate
+ * @returns {Boolean} True if valid URL, false otherwise
+ */
+function isValidUrl(url) {
+    try {
+        new URL(url);
+        return true;
+    } catch (e) {
+        return false;
+    }
+} 
