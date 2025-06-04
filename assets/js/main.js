@@ -1,4 +1,3 @@
-
 const blogGrid = document.getElementById('blogGrid');
 const noBlogs = document.getElementById('noBlogs');
 const searchInput = document.getElementById('searchInput');
@@ -20,6 +19,10 @@ let selectedBlogId = null;
 document.addEventListener('DOMContentLoaded', () => {
     loadBlogs();
     setupEventListeners();
+    
+    if (blogStorage.getAllBlogs().length === 0) {
+        resetAndAddSampleBlogs();
+    }
     
     window.addEventListener('click', (e) => {
         if (e.target === viewBlogModal) {
@@ -99,12 +102,16 @@ function createBlogCard(blog) {
     const formattedDate = blogStorage.formatDate(blog.createdAt);
     const updateText = blog.updatedAt ? `<span class="text-indigo-500">(Updated: ${blogStorage.formatDate(blog.updatedAt)})</span>` : '';
     
+    const truncatedContent = blog.content.length > 150 
+        ? blog.content.substring(0, 150) + '...' 
+        : blog.content;
+    
     const imageHtml = blog.imageUrl 
         ? `<div class="h-48 overflow-hidden">
-             <img src="${blog.imageUrl}" alt="${blog.title}" class="w-full h-full object-cover transition-transform duration-500 hover:scale-110">
+             <img src="${blog.imageUrl}" alt="${blog.title}" class="w-full h-full object-cover transition-transform duration-500 hover:scale-110" 
+                  onerror="this.onerror=null; this.src='https://via.placeholder.com/400x300?text=Image+Not+Found'; this.classList.add('opacity-50');">
            </div>`
         : '';
-    
 
     card.innerHTML = `
         ${imageHtml}
@@ -178,7 +185,8 @@ function viewBlog(blogId) {
     
     const imageHtml = blog.imageUrl 
         ? `<div class="mb-6">
-             <img src="${blog.imageUrl}" alt="${blog.title}" class="w-full h-auto rounded-lg shadow-md max-h-96 object-contain mx-auto">
+             <img src="${blog.imageUrl}" alt="${blog.title}" class="w-full h-auto rounded-lg shadow-md max-h-96 object-contain mx-auto"
+                  onerror="this.onerror=null; this.src='https://via.placeholder.com/800x600?text=Image+Not+Found'; this.classList.add('opacity-50');">
            </div>`
         : '';
     
@@ -239,6 +247,7 @@ function confirmDeleteBlog() {
     const success = blogStorage.deleteBlog(selectedBlogId);
     if (success) {
         showToast('Blog deleted successfully!');
+        loadBlogs();
     } else {
         showToast('Failed to delete blog', 'error');
     }
@@ -249,9 +258,17 @@ function confirmDeleteBlog() {
 function confirmClearAll() {
     if (confirm('Are you sure you want to delete all blogs? This action cannot be undone.')) {
         blogStorage.deleteAllBlogs();
+        blogStorage.addSampleBlogs();
         loadBlogs();
-        showToast('All blogs deleted successfully!');
+        showToast('All blogs deleted and sample blogs added!');
     }
+}
+
+function resetAndAddSampleBlogs() {
+    blogStorage.deleteAllBlogs();
+    blogStorage.addSampleBlogs();
+    loadBlogs();
+    showToast('Sample blogs added successfully!');
 }
 
 function animateCards() {
